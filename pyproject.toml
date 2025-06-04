@@ -45,7 +45,7 @@ test = [
 
 [project.urls]
 Documentation = "https://xproj.readthedocs.io"
-Repository = "https://github.com/benbovy/xproj"
+Repository = "https://github.com/xarray-contrib/xproj"
 
 [tool.ruff]
 builtins = ["ellipsis"]

@@ -87,7 +87,7 @@ html_theme = "sphinx_book_theme"
 html_title = "XProj"
 
 html_theme_options = dict(
-    repository_url="https://github.com/benbovy/xproj",
+    repository_url="https://github.com/xarray-contrib/xproj",
     repository_branch="main",
     path_to_docs="docs",
     use_edit_page_button=True,

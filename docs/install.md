@@ -23,11 +23,11 @@ $ pip install xproj
 
 Installing XProj from source may be useful for development purpose.
 
-Clone XProj's [source repository](https://github.com/benbovy/xproj) and then
+Clone XProj's [source repository](https://github.com/xarray-contrib/xproj) and then
 install it from the source root directory:
 
 ```sh
-$ git clone https://github.com/benbovy/xproj
+$ git clone https://github.com/xarray-contrib/xproj
 $ cd xproj
 $ python -m pip install -e .
 ```

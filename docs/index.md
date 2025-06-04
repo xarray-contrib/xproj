@@ -5,10 +5,10 @@ systems (CRS) using PROJ/[Pyproj].
 
 **Useful links**:
 [Home](http://xproj.readthedocs.io/) |
-[Code Repository](https://github.com/benbovy/xproj) |
-[Issues](https://github.com/benbovy/xproj/issues) |
-[Discussions](https://github.com/benbovy/xproj/discussions) |
-[Releases](https://github.com/benbovy/xproj/releases)
+[Code Repository](https://github.com/xarray-contrib/xproj) |
+[Issues](https://github.com/xarray-contrib/xproj/issues) |
+[Discussions](https://github.com/xarray-contrib/xproj/discussions) |
+[Releases](https://github.com/xarray-contrib/xproj/releases)
 
 ## Contents
 
