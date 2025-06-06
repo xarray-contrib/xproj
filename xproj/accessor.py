@@ -10,6 +10,7 @@ import xarray as xr
 from xproj.crs_utils import format_compact_cf
 from xproj.index import CRSIndex
 from xproj.mixins import ProjIndexMixin
+from xproj.typing import CRSAwareIndex
 from xproj.utils import Frozen, FrozenDict
 
 
@@ -94,21 +95,31 @@ class CRSProxy:
 
     _obj: xr.Dataset | xr.DataArray
     _crs_coord_name: Hashable
-    _crs: pyproj.CRS
+    _crs: pyproj.CRS | None
 
-    def __init__(self, obj: xr.Dataset | xr.DataArray, coord_name: Hashable, crs: pyproj.CRS):
+    def __init__(
+        self, obj: xr.Dataset | xr.DataArray, coord_name: Hashable, crs: pyproj.CRS | None
+    ):
         self._obj = obj
         self._crs_coord_name = coord_name
         self._crs = crs
 
     @property
-    def crs(self) -> pyproj.CRS:
-        """Return the coordinate reference system as a :class:`pyproj.CRS` object."""
+    def crs(self) -> pyproj.CRS | None:
+        """Return the coordinate reference system as a :class:`pyproj.CRS` object, or
+        ``None`` if the CRS is undefined.
+        """
         return self._crs
 
 
 def is_crs_aware(index: xr.Index) -> bool:
-    return isinstance(index, ProjIndexMixin) or hasattr(index, "_proj_get_crs")
+    if isinstance(index, ProjIndexMixin):
+        return True
+    if hasattr(index, "crs"):
+        crs = getattr(index, "crs")
+        if isinstance(crs, pyproj.CRS) or crs is None:
+            return True
+    return False
 
 
 @xr.register_dataset_accessor("proj")
@@ -118,7 +129,7 @@ class ProjAccessor:
 
     _obj: xr.Dataset | xr.DataArray
     _crs_indexes: dict[Hashable, CRSIndex] | None
-    _crs_aware_indexes: dict[Hashable, xr.Index] | None
+    _crs_aware_indexes: dict[Hashable, CRSAwareIndex] | None
     _crs: pyproj.CRS | None | Literal[False]
 
     def __init__(self, obj: xr.Dataset | xr.DataArray):
@@ -138,7 +149,7 @@ class ProjAccessor:
                 self._crs_indexes[name] = idx
             elif is_crs_aware(idx):
                 for name in vars:
-                    self._crs_aware_indexes[name] = idx
+                    self._crs_aware_indexes[name] = cast(CRSAwareIndex, idx)
 
     @property
     def crs_indexes(self) -> Frozen[Hashable, CRSIndex]:
@@ -154,13 +165,12 @@ class ProjAccessor:
         return FrozenDict(self._crs_indexes)
 
     @property
-    def crs_aware_indexes(self) -> Frozen[Hashable, xr.Index]:
+    def crs_aware_indexes(self) -> Frozen[Hashable, CRSAwareIndex]:
         """Return an immutable dictionary of coordinate names as keys and
         xarray Index objects that are CRS-aware.
 
         A :term:`CRS-aware index` is an :py:class:`xarray.Index` object that
-        must at least implements a method like
-        :py:meth:`~xproj.ProjIndexMixin._proj_get_crs`.
+        must at least implement a property like :py:meth:`~xproj.ProjIndexMixin.crs`.
 
         """
         if self._crs_aware_indexes is None:
@@ -205,10 +215,10 @@ class ProjAccessor:
             A proxy accessor for a single CRS.
 
         """
-        crs: pyproj.CRS
+        crs: pyproj.CRS | None
 
         if coord_name in self.crs_aware_indexes:
-            crs = self.crs_aware_indexes[coord_name]._proj_get_crs()  # type: ignore
+            crs = self.crs_aware_indexes[coord_name].crs
         else:
             crs = self._get_crs_index(coord_name).crs
 
@@ -236,7 +246,7 @@ class ProjAccessor:
         if self._crs is False:
             all_crs = {name: idx.crs for name, idx in self.crs_indexes.items()}
             for name, idx in self.crs_aware_indexes.items():
-                crs = idx._proj_get_crs()  # type: ignore
+                crs = idx.crs
                 if crs is not None:
                     all_crs[name] = crs
 
@@ -387,7 +397,7 @@ class ProjAccessor:
                     )
                     continue
 
-                index_crs = index._proj_get_crs()  # type: ignore
+                index_crs = cast(CRSAwareIndex, index).crs
 
                 if not allow_override:
                     if index_crs is not None and index_crs != crs:

@@ -1,9 +1,12 @@
+from typing import cast
+
 import pyproj
 import pytest
 import xarray as xr
 from xarray.indexes import Index, PandasIndex
 
 import xproj
+from xproj.typing import CRSAwareIndex
 
 
 @pytest.fixture
@@ -28,17 +31,19 @@ def spatial_xr_obj(request, spatial_dataset, spatial_dataarray):
         yield spatial_dataarray
 
 
-class ImmutableCRSIndex(PandasIndex):
-    def _proj_get_crs(self):
+class IndexWithImmutableCRS(PandasIndex):
+    @property
+    def crs(self):
         return pyproj.CRS.from_epsg(4326)
 
 
-class MutableCRSIndex(PandasIndex):
+class IndexWithMutableCRS(PandasIndex):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._crs = None
 
-    def _proj_get_crs(self):
+    @property
+    def crs(self):
         return self._crs
 
     def _proj_set_crs(self, crs_coord_name, crs):
@@ -69,7 +74,7 @@ def test_accessor_crs_indexes(spatial_xr_obj) -> None:
 
 
 def test_accessor_crs_aware_indexes() -> None:
-    ds = xr.Dataset(coords={"foo": ("x", [1, 2])}).set_xindex("foo", ImmutableCRSIndex)
+    ds = xr.Dataset(coords={"foo": ("x", [1, 2])}).set_xindex("foo", IndexWithImmutableCRS)
 
     assert ds.proj.crs_aware_indexes["foo"] is ds.xindexes["foo"]
 
@@ -78,7 +83,7 @@ def test_accessor_crs_aware_indexes() -> None:
 
     # frozen dict
     with pytest.raises(TypeError, match="not support item assignment"):
-        ds.proj.crs_aware_indexes["new"] = ImmutableCRSIndex([2, 3], "x")
+        ds.proj.crs_aware_indexes["new"] = IndexWithImmutableCRS([2, 3], "x")
 
     with pytest.raises(TypeError, match="not support item deletion"):
         del ds.proj.crs_aware_indexes["foo"]
@@ -96,9 +101,9 @@ def test_accessor_callable(spatial_xr_obj) -> None:
 
 
 def test_accessor_callable_crs_aware_index() -> None:
-    ds = xr.Dataset(coords={"foo": ("x", [1, 2])}).set_xindex("foo", ImmutableCRSIndex)
+    ds = xr.Dataset(coords={"foo": ("x", [1, 2])}).set_xindex("foo", IndexWithImmutableCRS)
 
-    assert ds.proj("foo").crs == ds.xindexes["foo"]._proj_get_crs()  # type: ignore
+    assert ds.proj("foo").crs == cast(CRSAwareIndex, ds.xindexes["foo"]).crs
 
 
 def test_accessor_callable_error(spatial_xr_obj) -> None:
@@ -149,7 +154,7 @@ def test_accessor_crs() -> None:
     ds = ds.assign_coords(foo=("x", [1, 2])).set_xindex("foo", NoCRSIndex)
     assert ds.proj.crs is None
 
-    ds = ds.drop_indexes("foo").set_xindex("foo", ImmutableCRSIndex)
+    ds = ds.drop_indexes("foo").set_xindex("foo", IndexWithImmutableCRS)
     assert ds.proj.crs == pyproj.CRS.from_epsg(4326)
 
     ds = ds.drop_vars("foo")
@@ -196,7 +201,7 @@ def test_accessor_map_crs(spatial_xr_obj) -> None:
     # nothing happens but should return a copy
     assert spatial_xr_obj.proj.map_crs() is not spatial_xr_obj
 
-    obj = spatial_xr_obj.assign_coords(foo=("x", [1, 2])).set_xindex("foo", MutableCRSIndex)
+    obj = spatial_xr_obj.assign_coords(foo=("x", [1, 2])).set_xindex("foo", IndexWithMutableCRS)
     actual = obj.proj.map_crs(spatial_ref=["foo"])
     actual2 = obj.proj.map_crs({"spatial_ref": ["foo"]})
     assert actual.proj("spatial_ref").crs == actual.proj("foo").crs
@@ -214,7 +219,7 @@ def test_accessor_map_crs(spatial_xr_obj) -> None:
     with pytest.raises(KeyError, match="no index found"):
         obj.proj.map_crs(spatial_ref=["foo"])
 
-    obj = spatial_xr_obj.assign_coords(foo=("x", [1, 2])).set_xindex("foo", MutableCRSIndex)
+    obj = spatial_xr_obj.assign_coords(foo=("x", [1, 2])).set_xindex("foo", IndexWithMutableCRS)
     with pytest.raises(KeyError, match="no coordinate 'a' found"):
         obj.proj.map_crs(a=["foo"])
 
@@ -233,7 +238,8 @@ def test_accessor_map_crs_multicoord_index() -> None:
             }
             return cls(xy_indexes)
 
-        def _proj_get_crs(self):
+        @property
+        def crs(self):
             return self._crs
 
         def _proj_set_crs(self, spatial_ref, crs):

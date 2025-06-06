@@ -1,23 +1,17 @@
+from __future__ import annotations
+
 import abc
-import sys
 from collections.abc import Hashable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import pyproj
-import xarray as xr
+from xarray import DataArray, Dataset
 
-try:
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
-except ImportError:
-    if TYPE_CHECKING:
-        raise
-    else:
-        Self: Any = None
+if TYPE_CHECKING:
+    from xproj.typing import CRSAwareIndex, Self
 
-T_Xarray_Object = TypeVar("T_Xarray_Object", xr.Dataset, xr.DataArray)
+
+T_Xarray_Object = TypeVar("T_Xarray_Object", Dataset, DataArray)
 
 
 class ProjAccessorMixin(abc.ABC, Generic[T_Xarray_Object]):
@@ -46,19 +40,48 @@ class ProjAccessorMixin(abc.ABC, Generic[T_Xarray_Object]):
 
 
 class ProjIndexMixin(abc.ABC):
-    """Mixin class that marks XProj support for an Xarray index."""
+    """Mixin class that marks XProj support for an Xarray index.
 
+    An :py:class:`xarray.Index` that inherits from this mixin class is
+    identified by XProj as a :term:`CRS-aware index` (note that an Xarray index
+    that simply has a ``crs`` property may also be identified as such, although
+    it may lack some XProj support).
+
+    """
+
+    @property
     @abc.abstractmethod
-    def _proj_get_crs(self) -> pyproj.CRS | None:
-        """XProj access to the CRS of the index.
-
-        Returns
-        -------
-        pyproj.crs.CRS or None
-            The CRS of the index or None if not (yet) defined.
-
+    def crs(self) -> pyproj.CRS | None:
+        """Returns the coordinate reference system (CRS) of the index as a
+        :class:`pyproj.crs.CRS` object, or ``None`` if CRS is undefined.
         """
         ...
+
+    def _proj_crs_equals(self, other: CRSAwareIndex, allow_none: bool = False) -> bool:
+        """Helper method to check if this CRS-aware index has the same CRS than the
+        other given CRS-aware index.
+
+        This method is usually called internally within the index's ``equals()``,
+        ``join()`` and ``reindex_like()`` methods.
+
+        Parameters
+        ----------
+        other : xarray.Index
+            The other CRS-aware index to compare with this index.
+        allow_none : bool, optional
+            If True, any undefined CRS is treated as the same (default: False).
+
+        """
+        # code taken from geopandas (BSD-3 Licence)
+
+        other_crs = other.crs
+
+        if allow_none:
+            if self.crs is None or other_crs is None:
+                return True
+        if not self.crs == other_crs:
+            return False
+        return True
 
     def _proj_set_crs(
         self: Self,
