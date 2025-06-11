@@ -96,11 +96,12 @@ def get_common_crs(
     Parameters
     ----------
     crs_objs : sequence or set
-        Sequence of either CRS objects or ``None`` (undefined CRS).
+        Sequence of either :py:class:`pyproj.CRS` objects or ``None``
+        (undefined CRS).
     on_undefined_crs : {"raise", "warn", "ignore"}, optional
-        If 'raise', raises a ValueError if a non-null CRS is found but
-        one or more inputs have undefined CRS. If 'warn' (default), emits a
-        UserWarning instead. If 'ignore' do nothing instead.
+        If "raise", raises a ValueError if a non-null CRS is found but
+        one or more inputs have undefined CRS. If "warn" (default), emits a
+        UserWarning instead. If "ignore", do nothing.
     stacklevel : int, optional
         Stack level value used for the emitted warning (default: 3).
 
