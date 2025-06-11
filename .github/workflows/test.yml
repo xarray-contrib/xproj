@@ -37,6 +37,8 @@ jobs:
       - name: Install xproj
         run: |
           python -m pip install -e .[test]
+          # TODO: remove in next xarray release (https://github.com/pydata/xarray/pull/10413)
+          python -m pip install typing_extensions
           python -m pip install pytest-cov
 
       - name: Run tests
