@@ -126,7 +126,8 @@ class GeoIndex(xr.indexes.PandasIndex, xproj.ProjIndexMixin):
 
         return super().sel(*args, **kwargs)
 
-    def _proj_get_crs(self):
+    @property
+    def crs(self):
         return self._crs
 
     def _proj_set_crs(self, spatial_ref, crs):
@@ -184,8 +185,9 @@ CRS-aware! (just a warning is emitted below).
 ds_geo_wgs84.sel(lat=70)
 ```
 
-Since ``GeoIndex`` also implements the ``_proj_get_crs`` method it is possible
-to get the CRS from the "lat" coordinate like so:
+``GeoIndex`` has a ``crs`` property (as required by
+{class}`~xproj.ProjIndexMixin`), which is possible to access also via the
+``proj`` accessor like so:
 
 ```{code-cell} ipython3
 ds_geo_wgs84.proj("lat").crs

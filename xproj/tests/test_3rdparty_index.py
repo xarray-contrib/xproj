@@ -6,13 +6,16 @@ from xarray.indexes import PandasIndex
 import xproj
 
 
-class CRSAwareIndex(PandasIndex):
+class IndexWithCRS(PandasIndex, xproj.ProjIndexMixin):
+    _crs: pyproj.CRS | None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._crs = None
         self.transformed = False
 
-    def _proj_get_crs(self):
+    @property
+    def crs(self) -> pyproj.CRS | None:
         return self._crs
 
     def _proj_set_crs(self, spatial_ref, crs):
@@ -24,6 +27,13 @@ class CRSAwareIndex(PandasIndex):
         new_index._crs = crs
         new_index.transformed = True
         return new_index
+
+    def equals(self, other, exclude=None) -> bool:
+        if not isinstance(other, IndexWithCRS):
+            return False
+        if not self._proj_crs_equals(other, allow_none=True):
+            return False
+        return super().equals(other)
 
     def _copy(self, deep=True, memo=None):
         # bug in PandasIndex? subclass attribute not copied
@@ -45,7 +55,7 @@ def test_index_mixin_abstract() -> None:
 def test_map_crs() -> None:
     ds = (
         xr.Dataset(coords={"foo": ("x", [1, 2])})
-        .set_xindex("foo", CRSAwareIndex)
+        .set_xindex("foo", IndexWithCRS)
         .proj.assign_crs(spatial_ref=pyproj.CRS.from_epsg(4326))
     )
 
@@ -77,13 +87,14 @@ def test_map_crs_read_only(epsg, crs_match) -> None:
     # try mapping the CRS a spatial ref coordinate to a CRS-aware index
     # that has read-only CRS access
 
-    class ImmutableCRSAwareIndex(PandasIndex, xproj.ProjIndexMixin):
-        def _proj_get_crs(self):
+    class IndexWithImmutableCRS(PandasIndex, xproj.ProjIndexMixin):
+        @property
+        def crs(self) -> pyproj.CRS | None:
             return pyproj.CRS.from_epsg(4326)
 
     ds = (
         xr.Dataset(coords={"foo": ("x", [1, 2])})
-        .set_xindex("foo", ImmutableCRSAwareIndex)
+        .set_xindex("foo", IndexWithImmutableCRS)
         .proj.assign_crs(spatial_ref=pyproj.CRS.from_epsg(epsg))
     )
 
@@ -99,3 +110,18 @@ def test_map_crs_read_only(epsg, crs_match) -> None:
 
         with pytest.raises(NotImplementedError):
             ds.proj.map_crs(spatial_ref=["foo"], allow_override=True, transform=True)
+
+
+def test_index_crs_equals() -> None:
+    ds_base = xr.Dataset(coords={"foo": ("x", [1, 2])}).set_xindex("foo", IndexWithCRS)
+
+    ds_crs_undef = ds_base.copy()
+    ds_crs1 = ds_base.proj.assign_crs(spatial_ref=pyproj.CRS.from_epsg(4326)).proj.map_crs(
+        spatial_ref=["foo"]
+    )
+    ds_crs2 = ds_base.proj.assign_crs(spatial_ref=pyproj.CRS.from_epsg(4978)).proj.map_crs(
+        spatial_ref=["foo"]
+    )
+
+    assert ds_crs_undef.xindexes["foo"].equals(ds_crs1.xindexes["foo"])
+    assert not ds_crs1.xindexes["foo"].equals(ds_crs2.xindexes["foo"])

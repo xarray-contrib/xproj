@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from _collections_abc import Mapping
+from collections.abc import Hashable, Mapping
 from typing import Any
 
 import pyproj
 import xarray as xr
+from pyproj.exceptions import CRSError
 from xarray.indexes import Index
 
 
@@ -69,7 +70,7 @@ class CRSIndex(Index):
                 crs = pyproj.CRS.from_user_input(options["crs"])
             else:
                 crs = pyproj.CRS.from_cf(var.attrs)
-        except pyproj.crs.CRSError:
+        except CRSError:
             raise ValueError(
                 f"CRS could not be constructed from attrs on provided variable {varname!r}"
                 f"Either add appropriate attributes to {varname!r} or pass a `crs` kwarg."
@@ -77,7 +78,7 @@ class CRSIndex(Index):
 
         return cls(crs)
 
-    def equals(self, other: Index) -> bool:
+    def equals(self, other: Index, *, exclude: frozenset[Hashable] | None = None) -> bool:
         if not isinstance(other, CRSIndex):
             return False
         if not self.crs == other.crs:

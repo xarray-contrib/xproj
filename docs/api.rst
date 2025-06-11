@@ -74,6 +74,15 @@ To enable it, be sure to import ``xproj`` after ``xarray``:
 
 .. currentmodule:: xproj
 
+CRS utility functions
+---------------------
+
+.. autosummary::
+   :toctree: _api_generated/
+
+   format_crs
+   get_common_crs
+
 3rd-party Xarray extensions
 ---------------------------
 
