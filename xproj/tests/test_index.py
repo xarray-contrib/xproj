@@ -81,3 +81,19 @@ def test_crsindex_equals() -> None:
 
     idx4 = CRSIndex(pyproj.CRS.from_user_input("epsg:4978"))
     assert idx1.equals(idx4) is False
+
+
+def test_align() -> None:
+    ds = xr.Dataset(coords={"spatial_ref": 0})
+
+    crs1 = pyproj.CRS.from_user_input("epsg:4326")
+    crs2 = pyproj.CRS.from_user_input("epsg:4978")
+
+    ds_crs1 = ds.set_xindex("spatial_ref", CRSIndex, crs=crs1)
+    ds_crs2 = ds.set_xindex("spatial_ref", CRSIndex, crs=crs2)
+
+    with pytest.raises(xr.AlignmentError, match="do not have the same CRS"):
+        xr.align(ds_crs1, ds_crs2, join="inner")
+
+    with pytest.raises(xr.AlignmentError, match="cannot align objects with join='exact'"):
+        xr.align(ds_crs1, ds_crs2, join="exact")
