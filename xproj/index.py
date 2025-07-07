@@ -6,6 +6,10 @@ from typing import Any
 import pyproj
 import xarray as xr
 from pyproj.exceptions import CRSError
+
+# TODO: import from xarray.errors when available
+# (https://github.com/pydata/xarray/pull/10285)
+from xarray import AlignmentError
 from xarray.indexes import Index
 
 
@@ -84,6 +88,15 @@ class CRSIndex(Index):
         if not self.crs == other.crs:
             return False
         return True
+
+    def join(self, other: CRSIndex, how: str = "inner") -> CRSIndex:
+        # If this method is called during Xarray alignment, it means that the
+        # equality check failed. Instead of a NotImplementedError we raise a
+        # ValueError with a nice error message.
+        raise AlignmentError(
+            "Objects to align do not have the same CRS\n"
+            f"first index:\n{self!r}\n\nsecond index:\n{other!r}"
+        )
 
     def _repr_inline_(self, max_width: int) -> str:
         if max_width is None:
